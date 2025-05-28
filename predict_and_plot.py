@@ -23,9 +23,23 @@ categories = [
 
 
 def predict_sample(sample, model_path="model.pkl"):
-    model = joblib.load(model_path)
-    features = extract_features(sample)
-    prediction = model.predict([features])[0]
+    try:
+        model = joblib.load(model_path)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Model file not found: {model_path}")
+    except Exception as e:
+        raise RuntimeError(f"Error loading model: {e}")
+
+    try:
+        features = extract_features(sample)
+    except Exception as e:
+        raise ValueError(f"Error extracting features from sample: {e}")
+
+    try:
+        prediction = model.predict([features])[0]
+    except Exception as e:
+        raise RuntimeError(f"Error making prediction: {e}")
+
     rounded = [round(x) for x in prediction]
 
     print("Prediction:")

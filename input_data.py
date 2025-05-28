@@ -3,10 +3,19 @@ import numpy as np
 
 
 def load_data(filepath):
-    df = pd.read_csv(filepath)
-    X_raw = df.iloc[:, 0:14].values
-    y = df.iloc[:, 14:].values
-    return X_raw, y
+    try:
+        df = pd.read_csv(filepath)
+        if df.shape[1] < 14:
+            raise ValueError(f"CSV must have at least 14 columns, found {df.shape[1]}")
+        X_raw = df.iloc[:, 0:14].values
+        y = df.iloc[:, 14:].values
+        return X_raw, y
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Data file not found: {filepath}")
+    except pd.errors.EmptyDataError:
+        raise ValueError("CSV file is empty")
+    except Exception as e:
+        raise RuntimeError(f"Error loading data: {str(e)}")
 
 
 """
@@ -15,6 +24,11 @@ Decision trees benefit from interpretable, numerical, and diverse features. A tr
 
 
 def extract_features(audiogram):
+    if len(audiogram) != 14:
+        raise ValueError(
+            f"Audiogram must have exactly 14 values (7 per ear), got {len(audiogram)}"
+        )
+
     left = np.array(audiogram[:7])
     right = np.array(audiogram[7:])
     diff = np.abs(left - right)
