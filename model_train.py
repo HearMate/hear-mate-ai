@@ -1,5 +1,5 @@
 import joblib
-from sklearn.tree import DecisionTreeRegressor
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
@@ -16,11 +16,11 @@ def train_model(X, y, model_path="model.pkl"):
         )
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=random_state
+        X, y
     )
 
     # TODO: Test other depth levels.
-    model = MultiOutputRegressor(DecisionTreeRegressor(max_depth=3))
+    model = DecisionTreeClassifier(max_depth=5)
     model.fit(X_train, y_train)
 
     y_pred = model.predict(X_test)

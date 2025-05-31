@@ -29,26 +29,27 @@ def predict_sample(sample, model_path="model.pkl"):
         raise FileNotFoundError(f"Model file not found: {model_path}")
     except Exception as e:
         raise RuntimeError(f"Error loading model: {e}")
-
+    """
     try:
         features = extract_features(sample)
     except Exception as e:
         raise ValueError(f"Error extracting features from sample: {e}")
-
+    """
     try:
-        prediction = model.predict([features])[0]
+        prediction = model.predict([sample])[0]
     except Exception as e:
         raise RuntimeError(f"Error making prediction: {e}")
 
-    rounded = [round(x) for x in prediction]
+    #rounded = [round(x) for x in prediction]
 
-    print("Prediction:")
+    print("Prediction:", prediction)
+    """
     for label, val in zip(categories, rounded):
         if "stopień" in label:
             print(f"- {label}: {hearing_loss_desc.get(val, val)}")
         else:
             print(f"- {label}: {val}")
-
+    """
 
 def plot_audiogram(sample):
     frequencies = [125, 250, 500, 1000, 2000, 4000, 8000]

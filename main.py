@@ -1,4 +1,4 @@
-from input_data import load_data, extract_features
+from input_data import load_data2, extract_features, load_data
 from model_train import train_model
 from predict_and_plot import predict_sample, plot_audiogram
 import os
@@ -9,19 +9,22 @@ import joblib
 def main(args):
     model_path = "hearing_model.pkl"
 
-    X_raw, y = load_data("data.csv")
-    X = [extract_features(row) for row in X_raw]
+    X_raw, y = load_data("xdata.csv", "ydata.csv", 2)
+
+    X_raw2, y2 = load_data2("xdata.csv", "ydata.csv")
+
+    # X = [extract_features(row) for row in X_raw]
 
     if args.force_train or not os.path.exists(model_path):
         print("Training model...")
-        model = train_model(X, y, model_path=model_path)
+        model = train_model(X_raw2, y2, model_path=model_path)
     else:
         print("Loading model from file...")
 
     # TODO: Remove this, after making it available on server.
-    sample = [45, 50, 55, 60, 65, 70, 75, 15, 20, 25, 20, 25, 30, 25]
+    sample = [45, 50, 55, 60, 65, 70, 75]
     predict_sample(sample, model_path=model_path)
-    plot_audiogram(sample)
+    # plot_audiogram(sample)
 
 
 if __name__ == "__main__":
