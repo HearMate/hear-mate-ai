@@ -1,30 +1,20 @@
-from input_data import load_data2, extract_features, load_data
-from model_train import train_model
-from predict_and_plot import predict_sample, plot_audiogram
 import os
 import argparse
 import joblib
+from classifier import AudiogramClassifier
 
 
 def main(args):
-    model_path = "hearing_model.pkl"
+    classifier = AudiogramClassifier(args)
+    sample = [0, 10, -5, 0, 10, 5, 10]
+    sample1 = [20, 30, 15, 30, 25, 35, 30]
+    sample2 = [40, 60, 75, 80, 60, 75, 80]
+    sample3 = [80, 85, 90, 95, 100, 85, 75]
 
-    X_raw, y = load_data("xdata.csv", "ydata.csv", 2)
-
-    X_raw2, y2 = load_data2("xdata.csv", "ydata.csv")
-
-    # X = [extract_features(row) for row in X_raw]
-
-    if args.force_train or not os.path.exists(model_path):
-        print("Training model...")
-        model = train_model(X_raw2, y2, model_path=model_path)
-    else:
-        print("Loading model from file...")
-
-    # TODO: Remove this, after making it available on server.
-    sample = [45, 50, 55, 60, 65, 70, 75]
-    predict_sample(sample, model_path=model_path)
-    # plot_audiogram(sample)
+    classifier.predict_for_ear(sample)
+    classifier.predict_for_ear(sample1)
+    classifier.predict_for_ear(sample2)
+    classifier.predict_for_ear(sample3)
 
 
 if __name__ == "__main__":
