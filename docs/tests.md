@@ -95,3 +95,50 @@ We transitioned to LightGBM but experienced a performance regression, achieving 
     'reg_lambda': 0
 }
 ```
+
+## Neural Network Implementation
+
+We implemented a Multi-Layer Perceptron (MLP) classifier but encountered further performance degradation, achieving 71% accuracy (↓7% from LightGBM, ↓16% from XGBoost baseline). The neural network approach showed promise in terms of architecture but struggled with the specific characteristics of our hearing loss dataset.
+
+### Default Configuration:
+```python
+{
+    'hidden_layer_sizes': (128, 64, 32),
+    'activation': 'relu',
+    'solver': 'adam',
+    'alpha': 0.01,
+    'learning_rate': 'adaptive',
+    'learning_rate_init': 0.001,
+    'max_iter': 1000,
+    'early_stopping': True,
+    'validation_fraction': 0.15,
+    'random_state': 42
+}
+```
+
+### Parameters Tested via RandomizedSearchCV:
+
+- **hidden_layer_sizes**: [(64,), (128,), (64, 32), (128, 64), (128, 64, 32), (256, 128, 64)]
+- **activation**: ["relu", "tanh"]
+- **solver**: ["adam", "lbfgs"]
+- **alpha**: [0.0001, 0.001, 0.01, 0.1]
+- **learning_rate**: ["constant", "adaptive"]
+- **learning_rate_init**: [0.001, 0.01, 0.1]
+- **max_iter**: [500, 1000, 2000]
+- **early_stopping**: [True]
+- **validation_fraction**: [0.1, 0.15, 0.2]
+
+### Best Parameter Combination:
+```python
+{
+    'hidden_layer_sizes': (128, 64),
+    'activation': 'relu',
+    'solver': 'adam',
+    'alpha': 0.001,
+    'learning_rate': 'adaptive',
+    'learning_rate_init': 0.01,
+    'max_iter': 1000,
+    'early_stopping': True,
+    'validation_fraction': 0.1
+}
+```
