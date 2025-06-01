@@ -2,8 +2,10 @@ import joblib
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.metrics import mean_squared_error, make_scorer
+from sklearn.model_selection import RandomizedSearchCV
 from sklearn.tree import plot_tree
 import matplotlib.pyplot as plt
+import xgboost as xgb
 import pandas as pd
 import os
 import numpy as np
@@ -59,9 +61,56 @@ class HearingLossClassifier:
             X_r_diff = np.diff(X_r, axis=1)
             X_l_diff = np.diff(X_l, axis=1)
 
-            # Combine with original features
-            X_r = np.hstack([X_r, X_r_avg, X_r_var, X_r_diff])
-            X_l = np.hstack([X_l, X_l_avg, X_l_var, X_l_diff])
+            X_r_ratios = X_r[:, 1:] / (
+                X_r[:, :-1] + 1e-10
+            )  # Add small epsilon to avoid division by zero
+            X_l_ratios = X_l[:, 1:] / (X_l[:, :-1] + 1e-10)
+
+            # 5. Add percentile-based features
+            X_r_p25 = np.percentile(X_r, 25, axis=1).reshape(-1, 1)
+            X_r_p75 = np.percentile(X_r, 75, axis=1).reshape(-1, 1)
+            X_l_p25 = np.percentile(X_l, 25, axis=1).reshape(-1, 1)
+            X_l_p75 = np.percentile(X_l, 75, axis=1).reshape(-1, 1)
+            X_r_iqr = X_r_p75 - X_r_p25  # Interquartile range
+            X_l_iqr = X_l_p75 - X_l_p25
+
+            # 6. Add features capturing skewness
+            X_r_skew = (
+                (np.mean(X_r, axis=1) - np.median(X_r, axis=1))
+                / (np.std(X_r, axis=1) + 1e-10)
+            ).reshape(-1, 1)
+            X_l_skew = (
+                (np.mean(X_l, axis=1) - np.median(X_l, axis=1))
+                / (np.std(X_l, axis=1) + 1e-10)
+            ).reshape(-1, 1)
+
+            # Update the feature stacking:
+            X_r = np.hstack(
+                [
+                    X_r,
+                    X_r_avg,
+                    X_r_var,
+                    X_r_diff,
+                    X_r_ratios,
+                    X_r_p25,
+                    X_r_p75,
+                    X_r_iqr,
+                    X_r_skew,
+                ]
+            )
+            X_l = np.hstack(
+                [
+                    X_l,
+                    X_l_avg,
+                    X_l_var,
+                    X_l_diff,
+                    X_l_ratios,
+                    X_l_p25,
+                    X_l_p75,
+                    X_l_iqr,
+                    X_l_skew,
+                ]
+            )
 
             # Now stack them vertically
             X = np.vstack([X_r, X_l])
@@ -90,49 +139,42 @@ class HearingLossClassifier:
             )
 
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.25, random_state=42, stratify=y
+            X, y, test_size=0.2, random_state=42, stratify=y
         )
 
-        # After one run the best params are:
-        # Best parameters: {'bootstrap': True, 'class_weight': 'balanced_subsample', 'max_depth': 8, 'max_features': None, 'min_samples_leaf': 2, 'min_samples_split': 2, 'n_estimators': 100}
-
-        # Params tested
         param_grid = {
-            "n_estimators": [100, 200, 300, 500],
-            "max_depth": [5, 8, 10, 15, 20, None],
-            "min_samples_split": [2, 5, 8, 10],
-            "min_samples_leaf": [1, 2, 4],
-            "max_features": ["sqrt", "log2", None],
-            "bootstrap": [True, False],
-            "class_weight": [
-                "balanced",
-                "balanced_subsample",
-                {0: 1, 1: 5, 2: 1, 3: 1},
-            ],
+            "n_estimators": [100, 200, 300],
+            "max_depth": [3, 5, 7, 9],
+            "learning_rate": [0.01, 0.05, 0.1, 0.2],
+            "subsample": [0.6, 0.8, 1.0],
+            "colsample_bytree": [0.6, 0.8, 1.0],
+            "min_child_weight": [1, 3, 5],
+            "gamma": [0, 0.1, 0.3],
+            "reg_alpha": [0, 0.01, 0.1, 1],
+            "reg_lambda": [0.1, 1, 10],
         }
 
-        model = RandomForestClassifier(
+        model = xgb.XGBClassifier(
+            n_estimators=200,
+            max_depth=5,
+            learning_rate=0.1,
+            subsample=0.8,
+            colsample_bytree=0.8,
             random_state=42,
-            bootstrap=True,
-            class_weight="balanced_subsample",
-            max_depth=8,
-            max_features=None,
-            min_samples_leaf=2,
-            min_samples_split=2,
-            n_estimators=100,
-            criterion="gini",
-            oob_score=True,
         )
 
         if self.args.search_for_params:
-            grid_search = GridSearchCV(
+            grid_search = RandomizedSearchCV(
                 estimator=model,
-                param_grid=param_grid,
+                param_distributions=param_grid,
+                n_iter=50,  # Number of parameter settings sampled
                 cv=5,
-                scoring="balanced_accuracy",  # Better for imbalanced classes - so our case
+                scoring="balanced_accuracy",  # Better for imbalanced classes
                 n_jobs=-1,
-                verbose=1,
+                verbose=2,
+                random_state=42,
             )
+
             grid_search.fit(X_train, y_train)
 
             # Get the best model
@@ -172,19 +214,45 @@ class HearingLossClassifier:
             # Apply the same feature engineering as during training
             data_array = np.array(data).reshape(1, -1)
 
+            # Add all the same engineered features as in training
             # 1. Add frequency average
             data_avg = np.mean(data_array, axis=1).reshape(-1, 1)
-
             # 2. Add frequency variance
             data_var = np.var(data_array, axis=1).reshape(-1, 1)
-
             # 3. Add differences between adjacent frequencies
             data_diff = np.diff(data_array, axis=1)
+            # 4. Add ratios between adjacent bands
+            data_ratios = data_array[:, 1:] / (data_array[:, :-1] + 1e-10)
+            # 5. Add percentile features
+            data_p25 = np.percentile(data_array, 25, axis=1).reshape(-1, 1)
+            data_p75 = np.percentile(data_array, 75, axis=1).reshape(-1, 1)
+            data_iqr = data_p75 - data_p25
+            # 6. Add skewness
+            data_skew = (
+                (np.mean(data_array, axis=1) - np.median(data_array, axis=1))
+                / (np.std(data_array, axis=1) + 1e-10)
+            ).reshape(-1, 1)
 
-            # Combine with original features
-            data_engineered = np.hstack([data_array, data_avg, data_var, data_diff])
+            # Combine all features
+            data_engineered = np.hstack(
+                [
+                    data_array,
+                    data_avg,
+                    data_var,
+                    data_diff,
+                    data_ratios,
+                    data_p25,
+                    data_p75,
+                    data_iqr,
+                    data_skew,
+                ]
+            )
 
-            # Now make prediction with the engineered features
+            # Apply feature selection if used in training
+            if hasattr(self, "feature_selector"):
+                data_engineered = self.feature_selector.transform(data_engineered)
+
+            # Make prediction with the engineered features
             return int(self.model.predict(data_engineered)[0])
         except Exception as e:
             raise RuntimeError(f"Error making prediction: {e}")
