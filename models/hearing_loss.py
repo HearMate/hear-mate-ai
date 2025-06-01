@@ -14,6 +14,7 @@ MODEL_PATH = "models/hearing_loss.pkl"
 
 class HearingLossClassifier:
     def __init__(self, args):
+        self.args = args
         X, y = self._load_data()
         if os.path.exists(MODEL_PATH) and not args.force_train:
             self.model = joblib.load(MODEL_PATH)
@@ -92,7 +93,10 @@ class HearingLossClassifier:
             X, y, test_size=0.25, random_state=42, stratify=y
         )
 
-        # Params to test
+        # After one run the best params are:
+        # Best parameters: {'bootstrap': True, 'class_weight': 'balanced_subsample', 'max_depth': 8, 'max_features': None, 'min_samples_leaf': 2, 'min_samples_split': 2, 'n_estimators': 100}
+
+        # Params tested
         param_grid = {
             "n_estimators": [100, 200, 300, 500],
             "max_depth": [5, 8, 10, 15, 20, None],
@@ -110,38 +114,52 @@ class HearingLossClassifier:
         model = RandomForestClassifier(
             random_state=42,
             bootstrap=True,
+            class_weight="balanced_subsample",
+            max_depth=8,
+            max_features=None,
+            min_samples_leaf=2,
+            min_samples_split=2,
+            n_estimators=100,
             criterion="gini",
             oob_score=True,
         )
 
-        grid_search = GridSearchCV(
-            estimator=model,
-            param_grid=param_grid,
-            cv=5,
-            scoring="balanced_accuracy",  # Better for imbalanced classes - so our case
-            n_jobs=-1,
-            verbose=1,
-        )
-        grid_search.fit(X_train, y_train)
+        if self.args.search_for_params:
+            grid_search = GridSearchCV(
+                estimator=model,
+                param_grid=param_grid,
+                cv=5,
+                scoring="balanced_accuracy",  # Better for imbalanced classes - so our case
+                n_jobs=-1,
+                verbose=1,
+            )
+            grid_search.fit(X_train, y_train)
 
-        # Get the best model
-        best_model = grid_search.best_estimator_
+            # Get the best model
+            best_model = grid_search.best_estimator_
 
-        # Make predictions with the best model
-        y_pred = best_model.predict(X_test)
+            model = best_model
 
-        # Display results
-        print("\n" + "=" * 50)
-        print("GRID SEARCH RESULTS")
-        print("=" * 50)
-        print(f"Best parameters: {grid_search.best_params_}")
+            # Display results
+            print("\n" + "=" * 50)
+            print("GRID SEARCH RESULTS")
+            print("=" * 50)
+            print(f"Best parameters: {grid_search.best_params_}")
+        else:
+            model.fit(X_train, y_train)
+
+        y_pred = model.predict(X_test)
+
+        accuracy_alt = model.score(X_test, y_test) * 100
+        print(f"Accuracy (using score method): {accuracy_alt:.2f}%")
+
         try:
-            joblib.dump(best_model, MODEL_PATH)
+            joblib.dump(model, MODEL_PATH)
             print(f"Model saved to {MODEL_PATH}")
         except Exception as e:
             print(f"Error saving model to {MODEL_PATH}: {e}")
             raise
-        return best_model
+        return model
 
     def predict(self, data):
         try:
