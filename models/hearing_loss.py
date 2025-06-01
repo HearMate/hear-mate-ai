@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import os
 import numpy as np
+from data.consts import *
 
 MODEL_PATH = "models/hearing_loss.pkl"
 
@@ -20,11 +21,9 @@ class HearingLossClassifier:
             self.model = self._train_model(X, y)
 
     def _load_data(self):
-        x_filepath = "data/xdata.csv"
-        y_filepath = "data/ydata.csv"
         try:
-            x_df = pd.read_csv(x_filepath, sep=";")
-            y_df = pd.read_csv(y_filepath, sep=";")
+            x_df = pd.read_csv(X_FILEPATH, sep=";")
+            y_df = pd.read_csv(Y_FILEPATH, sep=";")
 
             if x_df.empty or y_df.empty:
                 raise ValueError("One of the CSV files is empty")
@@ -46,7 +45,7 @@ class HearingLossClassifier:
             y_l = y_df_l.dropna().to_numpy()
             X_l = X_df_l.loc[y_df_l.dropna().index].to_numpy()
 
-            # Feature engineering
+            # Additional feature engineering
             # 1. Add frequency averages
             X_r_avg = np.mean(X_r, axis=1).reshape(-1, 1)
             X_l_avg = np.mean(X_l, axis=1).reshape(-1, 1)
@@ -93,7 +92,7 @@ class HearingLossClassifier:
             X, y, test_size=0.25, random_state=42, stratify=y
         )
 
-        # Use a more flexible parameter grid
+        # Params to test
         param_grid = {
             "n_estimators": [100, 200, 300, 500],
             "max_depth": [5, 8, 10, 15, 20, None],
@@ -101,24 +100,25 @@ class HearingLossClassifier:
             "min_samples_leaf": [1, 2, 4],
             "max_features": ["sqrt", "log2", None],
             "bootstrap": [True, False],
-            "class_weight": ["balanced", "balanced_subsample", None],
+            "class_weight": [
+                "balanced",
+                "balanced_subsample",
+                {0: 1, 1: 5, 2: 1, 3: 1},
+            ],
         }
 
-        # Create a more sensitive model
         model = RandomForestClassifier(
             random_state=42,
-            class_weight="balanced",
             bootstrap=True,
-            criterion="gini",  # Try "entropy" as an alternative
-            oob_score=True,  # Enable out-of-bag evaluation
+            criterion="gini",
+            oob_score=True,
         )
 
-        # Use a more appropriate scoring metric
         grid_search = GridSearchCV(
             estimator=model,
             param_grid=param_grid,
             cv=5,
-            scoring="balanced_accuracy",  # Better for imbalanced classes
+            scoring="balanced_accuracy",  # Better for imbalanced classes - so our case
             n_jobs=-1,
             verbose=1,
         )
