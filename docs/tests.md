@@ -64,3 +64,34 @@ We further improved model performance with XGBoost, achieving 87% accuracy (↑4
     'colsample_bytree': 0.6
 }
 ```
+
+## LightGBM Implementation
+
+We transitioned to LightGBM but experienced a performance regression, achieving 78% accuracy (↓9% from XGBoost baseline). Despite improved infrastructure and feature engineering, the model underperformed compared to previous implementations.
+
+### Parameters Tested via RandomizedSearchCV:
+
+- **n_estimators**: [200, 300, 400]
+- **learning_rate**: [0.05, 0.1, 0.15]
+- **max_depth**: [5, 6, 7, 8]
+- **num_leaves**: [31, 50, 70]
+- **feature_fraction**: [0.7, 0.8, 0.9]
+- **bagging_fraction**: [0.7, 0.8, 0.9]
+- **min_child_samples**: [10, 20, 30]
+- **reg_alpha**: [0, 0.1, 0.5]
+- **reg_lambda**: [0, 0.1, 0.5]
+
+### Best Parameter Combination:
+```python
+{
+    'bagging_fraction': 0.8,
+    'feature_fraction': 0.8,
+    'learning_rate': 0.05,
+    'max_depth': 6,
+    'min_child_samples': 10,
+    'n_estimators': 400,
+    'num_leaves': 31,
+    'reg_alpha': 0.1,
+    'reg_lambda': 0
+}
+```
