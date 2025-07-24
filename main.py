@@ -8,15 +8,8 @@ def main(args):
     classifier = AudiogramClassifier(args)
     sample = [0, 10, -5, 0, 10, 5, 10]
     sample1 = [20, 30, 15, 30, 25, 35, 30]
-    sample2 = [40, 60, 75, 80, 60, 75, 80]
-    sample3 = [80, 85, 90, 95, 100, 85, 75]
-    sample4 = [80, 85, 90, 95, 100, 85, 75]
 
-    classifier.predict_for_ear(sample)
-    classifier.predict_for_ear(sample1)
-    classifier.predict_for_ear(sample2)
-    classifier.predict_for_ear(sample3)
-    classifier.predict_for_ear(sample4)
+    classifier.predict(sample, sample1)
 
 
 if __name__ == "__main__":

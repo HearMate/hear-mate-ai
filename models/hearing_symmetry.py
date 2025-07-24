@@ -12,10 +12,10 @@ import os
 import numpy as np
 from data.consts import *
 
-MODEL_PATH = MODEL_DIRECTORY + "hearing_loss.pkl"
+MODEL_PATH = MODEL_DIRECTORY + "hearing_symmetry.pkl"
 
 
-class HearingLossClassifier:
+class HearingSymmetryClassifier:
     def __init__(self, args):
         self.args = args
         X, y = self._load_data()
@@ -49,13 +49,9 @@ class HearingLossClassifier:
             y_l = y_df_l.dropna().to_numpy()
             X_l = X_df_l.loc[y_df_l.dropna().index].to_numpy()
 
+            # Now stack them vertically
             X = np.vstack([X_r, X_l])
             y = np.concatenate([y_r, y_l])
-
-            unique_values, counts = np.unique(y, return_counts=True)
-            print("Target values distribution:")
-            for value, count in zip(unique_values, counts):
-                print(f"Class {value}: {count} samples ({count/len(y)*100:.2f}%)")
 
             return X, y
 
@@ -69,25 +65,30 @@ class HearingLossClassifier:
     def _train_model(self, X, y):
         pass
 
-    def predict(self, data):
-        # Take into account 500 Hz, 1000 Hz & 2000 Hz and average the result. Based on that we choose category.
+    def predict(self, left_ear, right_ear):
+        if len(left_ear) != 7 or len(right_ear) != 7:
+            raise ValueError(
+                "Input data must contain 7 values for each ear corresponding to hearing loss at frequencies 125, 250, 500, 1000, 2000, 4000, 8000 Hz."
+            )
 
-        data = np.array(data)
+        left_ear = np.array(left_ear)
+        right_ear = np.array(right_ear)
+        diff = np.abs(left_ear - right_ear)
 
-        if data.shape[0] != 7:
-            raise ValueError("Input data must have exactly 7 features.")
-
-        # These indices correspond to 500 Hz, 1000 Hz, and 2000 Hz
-        avg_result = np.mean(data[[2, 3, 4]])
-
-        category = np.where(
-            avg_result <= 20,
-            0,
-            np.where(
-                avg_result <= 40,
-                1,
-                np.where(avg_result <= 70, 2, np.where(avg_result <= 90, 3, 4)),
-            ),
+        # 1. Check for ≥20 dB HL at two contiguous frequencies
+        count_20dB_contiguous = sum(
+            diff[i] >= 20 and diff[i + 1] >= 20 for i in range(len(diff) - 1)
         )
 
-        return category
+        if count_20dB_contiguous > 0:
+            return True
+
+        # 2. Check for ≥15 dB HL at any two frequencies between 2000 Hz and 8000 Hz (indices 4,5,6)
+        high_freq_indices = [4, 5, 6]
+        high_freq_diffs = diff[high_freq_indices]
+        count_15dB_high = np.sum(high_freq_diffs >= 15)
+
+        if count_15dB_high >= 2:
+            return True
+
+        return False

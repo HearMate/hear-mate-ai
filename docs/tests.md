@@ -142,3 +142,7 @@ We implemented a Multi-Layer Perceptron (MLP) classifier but encountered further
     'validation_fraction': 0.1
 }
 ```
+
+## Completely new approach
+
+As hearing symmetry & loss are possible to be checked using just simple calculations, we have decided not to proceed with using any models. These will be used for high & low frequency impairments.
