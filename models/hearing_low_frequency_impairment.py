@@ -11,7 +11,6 @@ import pandas as pd
 import os
 import numpy as np
 from data.consts import *
-from xgboost import Booster
 
 MODEL_PATH = MODEL_DIRECTORY + "hearing_low_frequency_impairment.pkl"
 
@@ -19,10 +18,10 @@ MODEL_PATH = MODEL_DIRECTORY + "hearing_low_frequency_impairment.pkl"
 class HearingLowFrequencyImpairmentClassifier:
     def __init__(self, args):
         self.args = args
-        X, y = self._load_data()
         if os.path.exists(MODEL_PATH) and not args.force_train:
             self.model = joblib.load(MODEL_PATH)
         else:
+            X, y = self._load_data()
             self.model = self._train_model(X, y)
 
     def _load_data(self):
@@ -49,70 +48,6 @@ class HearingLowFrequencyImpairmentClassifier:
 
             y_l = y_df_l.dropna().to_numpy()
             X_l = X_df_l.loc[y_df_l.dropna().index].to_numpy()
-
-            # Additional feature engineering
-            # 1. Add frequency averages
-            X_r_avg = np.mean(X_r, axis=1).reshape(-1, 1)
-            X_l_avg = np.mean(X_l, axis=1).reshape(-1, 1)
-
-            # 2. Add variance of frequencies
-            X_r_var = np.var(X_r, axis=1).reshape(-1, 1)
-            X_l_var = np.var(X_l, axis=1).reshape(-1, 1)
-
-            # 3. Add differences between adjacent frequencies
-            X_r_diff = np.diff(X_r, axis=1)
-            X_l_diff = np.diff(X_l, axis=1)
-
-            X_r_ratios = X_r[:, 1:] / (
-                X_r[:, :-1] + 1e-10
-            )  # Add small epsilon to avoid division by zero
-            X_l_ratios = X_l[:, 1:] / (X_l[:, :-1] + 1e-10)
-
-            # 5. Add percentile-based features
-            X_r_p25 = np.percentile(X_r, 25, axis=1).reshape(-1, 1)
-            X_r_p75 = np.percentile(X_r, 75, axis=1).reshape(-1, 1)
-            X_l_p25 = np.percentile(X_l, 25, axis=1).reshape(-1, 1)
-            X_l_p75 = np.percentile(X_l, 75, axis=1).reshape(-1, 1)
-            X_r_iqr = X_r_p75 - X_r_p25  # Interquartile range
-            X_l_iqr = X_l_p75 - X_l_p25
-
-            # 6. Add features capturing skewness
-            X_r_skew = (
-                (np.mean(X_r, axis=1) - np.median(X_r, axis=1))
-                / (np.std(X_r, axis=1) + 1e-10)
-            ).reshape(-1, 1)
-            X_l_skew = (
-                (np.mean(X_l, axis=1) - np.median(X_l, axis=1))
-                / (np.std(X_l, axis=1) + 1e-10)
-            ).reshape(-1, 1)
-
-            # Update the feature stacking:
-            X_r = np.hstack(
-                [
-                    X_r,
-                    X_r_avg,
-                    X_r_var,
-                    X_r_diff,
-                    X_r_ratios,
-                    X_r_p25,
-                    X_r_p75,
-                    X_r_iqr,
-                    X_r_skew,
-                ]
-            )
-            X_l = np.hstack(
-                [
-                    X_l,
-                    X_l_avg,
-                    X_l_var,
-                    X_l_diff,
-                    X_l_ratios,
-                    X_l_p25,
-                    X_l_p75,
-                    X_l_iqr,
-                    X_l_skew,
-                ]
-            )
 
             # Now stack them vertically
             X = np.vstack([X_r, X_l])
@@ -214,10 +149,6 @@ class HearingLowFrequencyImpairmentClassifier:
         return model
 
     def predict(self, data):
-        booster: Booster = model.get_booster()
-        dump = booster.get_dump(with_stats=True)
-        print(dump[0])  # first tree only
-
         try:
             # Check if input data has the correct number of features before engineering
             if len(data) != 7:
@@ -225,48 +156,7 @@ class HearingLowFrequencyImpairmentClassifier:
                     f"Input data should have 7 features, but got {len(data)}"
                 )
 
-            # Apply the same feature engineering as during training
-            data_array = np.array(data).reshape(1, -1)
-
-            # Add all the same engineered features as in training
-            # 1. Add frequency average
-            data_avg = np.mean(data_array, axis=1).reshape(-1, 1)
-            # 2. Add frequency variance
-            data_var = np.var(data_array, axis=1).reshape(-1, 1)
-            # 3. Add differences between adjacent frequencies
-            data_diff = np.diff(data_array, axis=1)
-            # 4. Add ratios between adjacent bands
-            data_ratios = data_array[:, 1:] / (data_array[:, :-1] + 1e-10)
-            # 5. Add percentile features
-            data_p25 = np.percentile(data_array, 25, axis=1).reshape(-1, 1)
-            data_p75 = np.percentile(data_array, 75, axis=1).reshape(-1, 1)
-            data_iqr = data_p75 - data_p25
-            # 6. Add skewness
-            data_skew = (
-                (np.mean(data_array, axis=1) - np.median(data_array, axis=1))
-                / (np.std(data_array, axis=1) + 1e-10)
-            ).reshape(-1, 1)
-
-            # Combine all features
-            data_engineered = np.hstack(
-                [
-                    data_array,
-                    data_avg,
-                    data_var,
-                    data_diff,
-                    data_ratios,
-                    data_p25,
-                    data_p75,
-                    data_iqr,
-                    data_skew,
-                ]
-            )
-
-            # Apply feature selection if used in training
-            if hasattr(self, "feature_selector"):
-                data_engineered = self.feature_selector.transform(data_engineered)
-
             # Make prediction with the engineered features
-            return int(self.model.predict(data_engineered)[0])
+            return int(self.model.predict(data)[0])
         except Exception as e:
             raise RuntimeError(f"Error making prediction: {e}")

@@ -18,10 +18,10 @@ MODEL_PATH = MODEL_DIRECTORY + "hearing_high_frequency_impairment.pkl"
 class HearingHighFrequencyImpairmentClassifier:
     def __init__(self, args):
         self.args = args
-        X, y = self._load_data()
         if os.path.exists(MODEL_PATH) and not args.force_train:
             self.model = joblib.load(MODEL_PATH)
         else:
+            X, y = self._load_data()
             self.model = self._train_model(X, y)
 
     def _load_data(self):
