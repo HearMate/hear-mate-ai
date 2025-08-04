@@ -2,14 +2,27 @@ import os
 import argparse
 import joblib
 from classifier import AudiogramClassifier
+import json
+
+
+def parse_ear_results(env_var_name):
+    val = os.environ.get(env_var_name)
+    if val is None:
+        raise ValueError(f"Missing environment variable: {env_var_name}")
+    # Remove brackets and split, then convert to floats
+    val = val.strip("[]")
+    return [float(x.strip()) for x in val.split(",") if x.strip()]
 
 
 def main(args):
-    classifier = AudiogramClassifier(args)
-    sample = [0, 10, -5, 0, 10, 5, 10]
-    sample1 = [20, 30, 15, 30, 25, 35, 30]
+    left = parse_ear_results("LEFT_EAR_RESULTS")
+    right = parse_ear_results("RIGHT_EAR_RESULTS")
 
-    classifier.predict(sample, sample1)
+    classifier = AudiogramClassifier(args)
+
+    result = classifier.predict(left, right)
+
+    print(json.dumps(result))
 
 
 if __name__ == "__main__":

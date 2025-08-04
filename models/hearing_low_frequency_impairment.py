@@ -11,6 +11,7 @@ import pandas as pd
 import os
 import numpy as np
 from data.consts import *
+from xgboost import Booster
 
 MODEL_PATH = MODEL_DIRECTORY + "hearing_low_frequency_impairment.pkl"
 
@@ -213,6 +214,10 @@ class HearingLowFrequencyImpairmentClassifier:
         return model
 
     def predict(self, data):
+        booster: Booster = model.get_booster()
+        dump = booster.get_dump(with_stats=True)
+        print(dump[0])  # first tree only
+
         try:
             # Check if input data has the correct number of features before engineering
             if len(data) != 7:
