@@ -153,6 +153,8 @@ class HearingLowFrequencyImpairmentClassifier:
         try:
             arr = np.asarray(data, dtype=float)
 
+            # We need to handle training model & server post requests.
+
             if arr.ndim == 1:
                 # Single flat sample
                 if arr.shape[0] != 7:
