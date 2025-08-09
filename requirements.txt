@@ -6,3 +6,4 @@ xgboost
 lgm
 lightgbm
 joblib
+flask

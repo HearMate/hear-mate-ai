@@ -16,13 +16,14 @@ MODEL_PATH = MODEL_DIRECTORY + "hearing_high_frequency_impairment.pkl"
 
 
 class HearingHighFrequencyImpairmentClassifier:
-    def __init__(self, args):
+    def __init__(self, args=None):
         self.args = args
-        if os.path.exists(MODEL_PATH) and not args.force_train:
+        if os.path.exists(MODEL_PATH) and (args is None or not args.force_train):
             self.model = joblib.load(MODEL_PATH)
         else:
             X, y = self._load_data()
             self.model = self._train_model(X, y)
+            joblib.dump(self.model, MODEL_PATH)
 
     def _load_data(self):
         try:
@@ -150,16 +151,29 @@ class HearingHighFrequencyImpairmentClassifier:
 
     def predict(self, data):
         try:
-            # Check if input data has the correct number of features before engineering
-            if len(data) != 7:
-                raise ValueError(
-                    f"Input data should have 7 features, but got {len(data)}"
-                )
+            arr = np.asarray(data, dtype=float)
 
-            # Apply the same feature engineering as during training
-            data_array = np.array(data).reshape(1, -1)
+            if arr.ndim == 1:
+                # Single flat sample
+                if arr.shape[0] != 7:
+                    raise ValueError(f"Expected 7 features, got {arr.shape[0]}")
+                arr = arr.reshape(1, 7)
+            elif arr.ndim == 2:
+                # Batch or already single row
+                if arr.shape == (7, 1):
+                    # Column vector -> single row
+                    arr = arr.reshape(1, 7)
+                elif arr.shape[1] != 7:
+                    raise ValueError(
+                        f"Each sample must have 7 features, got shape {arr.shape}"
+                    )
+                # else: arr is (n,7) or (1,7) already; no reshape
+            else:
+                raise ValueError(f"Unsupported input dimensionality: {arr.ndim}")
 
-            # Make prediction with the engineered features
-            return int(self.model.predict(data_array)[0])
+            preds = self.model.predict(arr)
+            if arr.shape[0] == 1:
+                return int(preds[0])
+            return [int(p) for p in preds]
         except Exception as e:
             raise RuntimeError(f"Error making prediction: {e}")
