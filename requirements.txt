@@ -2,3 +2,8 @@ pandas
 numpy
 scikit-learn
 matplotlib
+xgboost
+lgm
+lightgbm
+joblib
+flask
