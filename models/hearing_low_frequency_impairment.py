@@ -1,4 +1,6 @@
 import joblib
+from matplotlib import cm
+import seaborn as sns
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.metrics import mean_squared_error, make_scorer
@@ -75,6 +77,17 @@ class HearingLowFrequencyImpairmentClassifier:
             X, y, test_size=0.2, random_state=42, stratify=y
         )
 
+        from collections import Counter
+
+        counter = Counter(y_train)
+        num_neg = counter[0]
+        num_pos = counter[1]
+
+        scale_pos_weight = num_neg / num_pos
+        print("Scale_pos_weight =", scale_pos_weight)
+
+        scale_pos_weight = scale_pos_weight * 0.4
+
         param_grid = {
             "n_estimators": [100, 200, 300],
             "max_depth": [3, 5, 7, 9],
@@ -98,6 +111,7 @@ class HearingLowFrequencyImpairmentClassifier:
             reg_alpha=0.01,
             reg_lambda=0.1,
             random_state=42,
+            scale_pos_weight=scale_pos_weight,
         )
 
         if self.args.search_for_params:
@@ -132,14 +146,21 @@ class HearingLowFrequencyImpairmentClassifier:
         accuracy_alt = model.score(X_test, y_test) * 100
         print(f"[{MODEL_PATH} Accuracy (using score method): {accuracy_alt:.2f}%")
 
-        # # Print confusion matrix
-        # print("\nConfusion Matrix:")
-        # cm = confusion_matrix(y_test, y_pred)
-        # print(cm)
+        # Print confusion matrix
+        print("\nConfusion Matrix:")
+        cm = confusion_matrix(y_test, y_pred)
+        print(cm)
 
-        # # Print classification report
-        # print("\nClassification Report:")
-        # print(classification_report(y_test, y_pred))
+        # Print classification report
+        print("\nClassification Report:")
+        print(classification_report(y_test, y_pred))
+
+        plt.figure(figsize=(6,4))
+        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
+        plt.title("Macierz błędów")
+        plt.xlabel("Przewidziane")
+        plt.ylabel("Prawdziwe")
+        plt.show()
 
         try:
             joblib.dump(model, MODEL_PATH)
